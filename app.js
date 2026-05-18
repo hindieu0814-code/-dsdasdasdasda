@@ -156,8 +156,11 @@ function showToast(message, type = "info") {
 
 function updateProgress(current, total) {
   const percent = Math.round((current / total) * 100);
-  document.getElementById("progressBar").style.width = percent + "%";
-  document.getElementById("progressPercent").textContent = percent + "%";
+  const progressBar = document.getElementById("progressBar");
+  const progressPercent = document.getElementById("progressPercent");
+  
+  if (progressBar) progressBar.style.width = percent + "%";
+  if (progressPercent) progressPercent.textContent = percent + "%";
 }
 
 // ============================================
@@ -167,6 +170,11 @@ function updateProgress(current, total) {
 function initializeUI() {
   const basicContainer = document.getElementById("basicRulesContainer");
   const advancedContainer = document.getElementById("advancedRulesContainer");
+  
+  if (!basicContainer || !advancedContainer) {
+    console.error("❌ Missing rule containers in HTML!");
+    return;
+  }
   
   basicContainer.innerHTML = "";
   advancedContainer.innerHTML = "";
@@ -209,39 +217,52 @@ function createRuleGroup(group, tab) {
   return groupDiv;
 }
 
-// ✅ FIXED: updateButtonStates() now checks Custom Patterns
 function updateButtonStates() {
-  const hasFile = lastData !== null;
+  const hasFile = lastData !== null && lastData.length > 0;
   const hasBasicRules = document.querySelectorAll('#basicRulesContainer input:checked').length > 0;
   const hasAdvRules = document.querySelectorAll('#advancedRulesContainer input:checked').length > 0;
   
   // Check Custom Patterns
-  const suffixes = document.getElementById("customSuffixes").value.trim();
-  const prefixes = document.getElementById("customPrefixes").value.trim();
-  const separators = document.getElementById("customSeparators").value.trim();
+  const suffixes = document.getElementById("customSuffixes") ? document.getElementById("customSuffixes").value.trim() : "";
+  const prefixes = document.getElementById("customPrefixes") ? document.getElementById("customPrefixes").value.trim() : "";
+  const separators = document.getElementById("customSeparators") ? document.getElementById("customSeparators").value.trim() : "";
   const hasCustomPatterns = suffixes || prefixes || separators;
   
   // Update button states
-  document.getElementById("generateBasicBtn").disabled = !hasFile || !hasBasicRules;
-  document.getElementById("generateAdvBtn").disabled = !hasFile || !hasAdvRules;
-  document.getElementById("generateCustomBtn").disabled = !hasFile || !hasCustomPatterns;
-  document.getElementById("clearBasicBtn").disabled = lastResult === "";
-  document.getElementById("downloadBtn").disabled = lastResult === "";
-  document.getElementById("copyBtn").disabled = lastResult === "";
+  const generateBasicBtn = document.getElementById("generateBasicBtn");
+  const generateAdvBtn = document.getElementById("generateAdvBtn");
+  const generateCustomBtn = document.getElementById("generateCustomBtn");
+  const clearBasicBtn = document.getElementById("clearBasicBtn");
+  const downloadBtn = document.getElementById("downloadBtn");
+  const copyBtn = document.getElementById("copyBtn");
+  
+  if (generateBasicBtn) generateBasicBtn.disabled = !hasFile || !hasBasicRules;
+  if (generateAdvBtn) generateAdvBtn.disabled = !hasFile || !hasAdvRules;
+  if (generateCustomBtn) generateCustomBtn.disabled = !hasFile || !hasCustomPatterns;
+  if (clearBasicBtn) clearBasicBtn.disabled = lastResult === "" || !hasFile;
+  if (downloadBtn) downloadBtn.disabled = lastResult === "";
+  if (copyBtn) copyBtn.disabled = lastResult === "";
 }
 
 function switchTab(tab) {
   document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
   document.querySelectorAll(".tab-button").forEach(el => el.classList.remove("active"));
   
-  document.getElementById(tab).classList.add("active");
-  event.target.classList.add("active");
+  const tabContent = document.getElementById(tab);
+  if (tabContent) tabContent.classList.add("active");
+  
+  const activeBtn = document.querySelector(`.tab-button[data-tab="${tab}"]`);
+  if (activeBtn) activeBtn.classList.add("active");
 }
 
 function filterRules(tab) {
   const searchId = tab.charAt(0).toUpperCase() + tab.slice(1);
-  const search = document.getElementById(`search${searchId}`).value.toLowerCase();
+  const searchEl = document.getElementById(`search${searchId}`);
   const container = document.getElementById(`${tab}RulesContainer`);
+  
+  if (!searchEl || !container) return;
+  
+  const search = searchEl.value.toLowerCase();
   
   container.querySelectorAll(".rule-group").forEach(group => {
     const name = group.dataset.group.toLowerCase();
@@ -260,6 +281,11 @@ function filterRules(tab) {
 function setupFileUpload() {
   const fileInput = document.getElementById("fileInput");
   const uploadArea = document.getElementById("uploadArea");
+  
+  if (!fileInput || !uploadArea) {
+    console.error("❌ Missing file upload elements!");
+    return;
+  }
   
   fileInput.addEventListener("change", handleFileSelect);
   
@@ -290,7 +316,10 @@ function handleFileSelect() {
   reader.onload = (e) => {
     const content = e.target.result;
     lastData = parseFileContent(content);
-    document.getElementById("statsFile").textContent = lastData.length;
+    
+    const statsFile = document.getElementById("statsFile");
+    if (statsFile) statsFile.textContent = lastData.length;
+    
     updateButtonStates();
     showToast(`✅ Tải ${lastData.length} cặp dữ liệu thành công!`, "success");
   };
@@ -326,25 +355,39 @@ async function generateVariants(mode) {
     return;
   }
   
-  if (isProcessing) return;
+  if (isProcessing) {
+    showToast("⏳ Đang xử lý... vui lòng chờ!", "info");
+    return;
+  }
+  
   isProcessing = true;
   shouldStop = false;
   
-  document.getElementById("generateBasicBtn").disabled = true;
-  document.getElementById("generateAdvBtn").disabled = true;
-  document.getElementById("generateCustomBtn").disabled = true;
-  document.getElementById("stopBtn").style.display = "inline-flex";
-  document.getElementById("progressSection").style.display = "block";
+  const generateBasicBtn = document.getElementById("generateBasicBtn");
+  const generateAdvBtn = document.getElementById("generateAdvBtn");
+  const generateCustomBtn = document.getElementById("generateCustomBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const progressSection = document.getElementById("progressSection");
+  
+  if (generateBasicBtn) generateBasicBtn.disabled = true;
+  if (generateAdvBtn) generateAdvBtn.disabled = true;
+  if (generateCustomBtn) generateCustomBtn.disabled = true;
+  if (stopBtn) stopBtn.style.display = "inline-flex";
+  if (progressSection) progressSection.style.display = "block";
   
   try {
     let chosen = [];
     let customPatterns = {};
     
     if (mode === "custom") {
+      const suffixesEl = document.getElementById("customSuffixes");
+      const prefixesEl = document.getElementById("customPrefixes");
+      const separatorsEl = document.getElementById("customSeparators");
+      
       customPatterns = {
-        suffixes: document.getElementById("customSuffixes").value.split("\n").filter(x => x.trim()),
-        prefixes: document.getElementById("customPrefixes").value.split("\n").filter(x => x.trim()),
-        separators: document.getElementById("customSeparators").value.split("\n").filter(x => x.trim())
+        suffixes: suffixesEl ? suffixesEl.value.split("\n").map(x => x.trim()).filter(x => x) : [],
+        prefixes: prefixesEl ? prefixesEl.value.split("\n").map(x => x.trim()).filter(x => x) : [],
+        separators: separatorsEl ? separatorsEl.value.split("\n").map(x => x.trim()).filter(x => x) : []
       };
       
       if (!customPatterns.suffixes.length && !customPatterns.prefixes.length && !customPatterns.separators.length) {
@@ -362,15 +405,20 @@ async function generateVariants(mode) {
       }
     }
     
+    const mutationDepthEl = document.getElementById("mutationDepth");
+    const maxResultsEl = document.getElementById("maxResults");
+    
     const payload = {
       mode: mode,
       data: lastData,
       rules: chosen,
       customPatterns: customPatterns,
-      depth: parseInt(document.getElementById("mutationDepth").value),
+      depth: mutationDepthEl ? parseInt(mutationDepthEl.value) || 2 : 2,
       chunkSize: 500,
-      maxResults: parseInt(document.getElementById("maxResults").value)
+      maxResults: maxResultsEl ? parseInt(maxResultsEl.value) || 100000 : 100000
     };
+    
+    console.log("📤 Sending request:", { mode, rulesCount: chosen.length, dataCount: lastData.length });
     
     const response = await fetch("/api/generate", {
       method: "POST",
@@ -379,21 +427,33 @@ async function generateVariants(mode) {
     });
     
     if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
+      const errorData = await response.text();
+      console.error("❌ Server error:", errorData);
+      throw new Error(`Server error: ${response.status} - ${errorData}`);
     }
     
     const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || "Unknown error from server");
+    }
+    
     allResults.clear();
     
-    result.variants.forEach(variant => {
-      allResults.set(variant, true);
-    });
+    if (result.variants && Array.isArray(result.variants)) {
+      result.variants.forEach(variant => {
+        allResults.set(variant, true);
+      });
+    }
     
     displayResults();
     
     const ratio = lastData.length > 0 ? (allResults.size / lastData.length).toFixed(1) : 0;
-    document.getElementById("statsVariants").textContent = allResults.size;
-    document.getElementById("statsRatio").textContent = ratio + "x";
+    const statsVariants = document.getElementById("statsVariants");
+    const statsRatio = document.getElementById("statsRatio");
+    
+    if (statsVariants) statsVariants.textContent = allResults.size;
+    if (statsRatio) statsRatio.textContent = ratio + "x";
     
     showToast(
       `✅ Tạo ${allResults.size} variants từ ${lastData.length} cặp!`,
@@ -401,16 +461,18 @@ async function generateVariants(mode) {
     );
     
   } catch (error) {
-    console.error("Error:", error);
+    console.error("❌ Error:", error);
     showToast(`❌ Lỗi: ${error.message}`, "error");
   } finally {
     isProcessing = false;
     shouldStop = false;
-    document.getElementById("generateBasicBtn").disabled = false;
-    document.getElementById("generateAdvBtn").disabled = false;
-    document.getElementById("generateCustomBtn").disabled = false;
-    document.getElementById("stopBtn").style.display = "none";
-    document.getElementById("progressSection").style.display = "none";
+    
+    if (generateBasicBtn) generateBasicBtn.disabled = false;
+    if (generateAdvBtn) generateAdvBtn.disabled = false;
+    if (generateCustomBtn) generateCustomBtn.disabled = false;
+    if (stopBtn) stopBtn.style.display = "none";
+    if (progressSection) progressSection.style.display = "none";
+    
     updateButtonStates();
   }
 }
@@ -425,14 +487,20 @@ function displayResults() {
   }
   
   lastResult = output;
-  document.getElementById("output").textContent = output || "Không có kết quả.";
-  document.getElementById("count").textContent = items.length;
-  document.getElementById("totalCount").textContent = allResults.size;
+  
+  const outputEl = document.getElementById("output");
+  const countEl = document.getElementById("count");
+  const totalCountEl = document.getElementById("totalCount");
+  
+  if (outputEl) outputEl.textContent = output || "Không có kết quả.";
+  if (countEl) countEl.textContent = items.length;
+  if (totalCountEl) totalCountEl.textContent = allResults.size;
 }
 
 function stopProcessing() {
   shouldStop = true;
   isProcessing = false;
+  showToast("⏹️ Đã dừng xử lý!", "info");
 }
 
 // ============================================
@@ -440,16 +508,22 @@ function stopProcessing() {
 // ============================================
 
 function downloadResults() {
-  if (allResults.size === 0) return;
+  if (allResults.size === 0) {
+    showToast("❌ Không có dữ liệu để tải!", "error");
+    return;
+  }
   
-  const format = document.getElementById("exportFormat").value;
+  const formatEl = document.getElementById("exportFormat");
+  const format = formatEl ? formatEl.value : "txt";
   let content, filename, type;
   
   const items = Array.from(allResults.keys());
   
   if (format === "csv") {
     content = "username,password\n" + items.map(line => {
-      const [user, pass] = line.split(":");
+      const colonIdx = line.indexOf(":");
+      const user = line.substring(0, colonIdx);
+      const pass = line.substring(colonIdx + 1);
       return `"${user}","${pass}"`;
     }).join("\n");
     filename = `passwords_${Date.now()}.csv`;
@@ -483,7 +557,10 @@ function downloadResults() {
 }
 
 function copyToClipboard() {
-  if (!lastResult) return;
+  if (!lastResult) {
+    showToast("❌ Không có dữ liệu để copy!", "error");
+    return;
+  }
   
   navigator.clipboard.writeText(lastResult).then(() => {
     showToast("✅ Đã copy vào clipboard!", "success");
@@ -492,28 +569,46 @@ function copyToClipboard() {
   });
 }
 
-// ✅ FIXED: clearAll() now clears Custom Patterns
 function clearAll() {
   lastResult = "";
   allResults.clear();
   lastData = null;
-  document.getElementById("fileInput").value = "";
+  
+  const fileInput = document.getElementById("fileInput");
+  if (fileInput) fileInput.value = "";
+  
   document.querySelectorAll(".rules input:checked").forEach((c) => {
     c.checked = false;
   });
-  // Clear Custom Patterns
-  document.getElementById("customSuffixes").value = "";
-  document.getElementById("customPrefixes").value = "";
-  document.getElementById("customSeparators").value = "";
   
-  document.getElementById("output").textContent = "Không có dữ liệu. Vui lòng tải file lên.";
-  document.getElementById("count").textContent = "0";
-  document.getElementById("totalCount").textContent = "0";
-  document.getElementById("ratioCount").textContent = "0x";
-  document.getElementById("progressBar").style.width = "0%";
-  document.getElementById("statsFile").textContent = "0";
-  document.getElementById("statsVariants").textContent = "0";
-  document.getElementById("statsRatio").textContent = "0x";
+  // Clear Custom Patterns
+  const customSuffixes = document.getElementById("customSuffixes");
+  const customPrefixes = document.getElementById("customPrefixes");
+  const customSeparators = document.getElementById("customSeparators");
+  
+  if (customSuffixes) customSuffixes.value = "";
+  if (customPrefixes) customPrefixes.value = "";
+  if (customSeparators) customSeparators.value = "";
+  
+  // Reset display
+  const output = document.getElementById("output");
+  const count = document.getElementById("count");
+  const totalCount = document.getElementById("totalCount");
+  const ratioCount = document.getElementById("ratioCount");
+  const progressBar = document.getElementById("progressBar");
+  const statsFile = document.getElementById("statsFile");
+  const statsVariants = document.getElementById("statsVariants");
+  const statsRatio = document.getElementById("statsRatio");
+  
+  if (output) output.textContent = "Không có dữ liệu. Vui lòng tải file lên.";
+  if (count) count.textContent = "0";
+  if (totalCount) totalCount.textContent = "0";
+  if (ratioCount) ratioCount.textContent = "0x";
+  if (progressBar) progressBar.style.width = "0%";
+  if (statsFile) statsFile.textContent = "0";
+  if (statsVariants) statsVariants.textContent = "0";
+  if (statsRatio) statsRatio.textContent = "0x";
+  
   updateButtonStates();
   showToast("🗑️ Đã xóa tất cả dữ liệu!", "info");
 }
@@ -522,8 +617,9 @@ function clearAll() {
 // INITIALIZATION
 // ============================================
 
-// Setup tab switching
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("🚀 Initializing app...");
+  
   initializeUI();
   setupFileUpload();
   updateButtonStates();
@@ -532,11 +628,19 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".tab-button").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const tab = btn.dataset.tab;
-      document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
-      document.querySelectorAll(".tab-button").forEach(el => el.classList.remove("active"));
-      
-      document.getElementById(tab).classList.add("active");
-      btn.classList.add("active");
+      if (tab) switchTab(tab);
     });
   });
+  
+  // Add event listeners to custom patterns
+  const customTextareas = ["customSuffixes", "customPrefixes", "customSeparators"];
+  customTextareas.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", updateButtonStates);
+      el.addEventListener("input", updateButtonStates);
+    }
+  });
+  
+  console.log("✅ App initialized!");
 });
