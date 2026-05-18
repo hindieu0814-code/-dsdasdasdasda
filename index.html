@@ -113,7 +113,7 @@
             <button class="btn btn-primary" id="generateBasicBtn" onclick="generateVariants('basic')" disabled>
               ⚡ Generate Variants (Basic)
             </button>
-            <button class="btn btn-secondary" id="clearBtn" onclick="clearAll()" disabled>
+            <button class="btn btn-secondary" id="clearBasicBtn" onclick="clearAll()" disabled>
               🗑️ Clear All
             </button>
           </div>
@@ -137,22 +137,33 @@
           <div class="custom-form">
             <div class="form-group">
               <label>Custom Suffixes</label>
-              <textarea id="customSuffixes" placeholder="_2024&#10;.pro&#10;@vip&#10;-love"></textarea>
+              <textarea id="customSuffixes" placeholder="_2024&#10;.pro&#10;@vip&#10;-love" onchange="updateButtonStates()" oninput="updateButtonStates()"></textarea>
             </div>
             <div class="form-group">
               <label>Custom Prefixes</label>
-              <textarea id="customPrefixes" placeholder="vn_&#10;admin_&#10;test_"></textarea>
+              <textarea id="customPrefixes" placeholder="vn_&#10;admin_&#10;test_" onchange="updateButtonStates()" oninput="updateButtonStates()"></textarea>
             </div>
             <div class="form-group">
               <label>Custom Separators</label>
-              <textarea id="customSeparators" placeholder="_&#10;-&#10;.&#10;#"></textarea>
+              <textarea id="customSeparators" placeholder="_&#10;-&#10;.&#10;#" onchange="updateButtonStates()" oninput="updateButtonStates()"></textarea>
             </div>
           </div>
           <div class="tab-actions">
-            <button class="btn btn-primary" onclick="generateVariants('custom')">
+            <button class="btn btn-primary" id="generateCustomBtn" onclick="generateVariants('custom')" disabled>
               ✏️ Generate from Custom
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- Progress Section -->
+      <div class="progress-section" id="progressSection" style="display: none; margin: 20px 0;">
+        <div class="progress-info">
+          <span>Processing...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progressBar" style="width: 0%;"></div>
         </div>
       </div>
 
@@ -186,6 +197,9 @@
           </button>
           <button class="btn btn-secondary" id="copyBtn" onclick="copyToClipboard()" disabled>
             📋 Copy to Clipboard
+          </button>
+          <button class="btn btn-secondary" id="stopBtn" onclick="stopProcessing()" style="display: none;">
+            ⏹️ Stop Processing
           </button>
         </div>
       </div>
