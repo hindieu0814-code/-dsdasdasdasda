@@ -209,13 +209,22 @@ function createRuleGroup(group, tab) {
   return groupDiv;
 }
 
+// ✅ FIXED: updateButtonStates() now checks Custom Patterns
 function updateButtonStates() {
   const hasFile = lastData !== null;
   const hasBasicRules = document.querySelectorAll('#basicRulesContainer input:checked').length > 0;
   const hasAdvRules = document.querySelectorAll('#advancedRulesContainer input:checked').length > 0;
   
+  // Check Custom Patterns
+  const suffixes = document.getElementById("customSuffixes").value.trim();
+  const prefixes = document.getElementById("customPrefixes").value.trim();
+  const separators = document.getElementById("customSeparators").value.trim();
+  const hasCustomPatterns = suffixes || prefixes || separators;
+  
+  // Update button states
   document.getElementById("generateBasicBtn").disabled = !hasFile || !hasBasicRules;
   document.getElementById("generateAdvBtn").disabled = !hasFile || !hasAdvRules;
+  document.getElementById("generateCustomBtn").disabled = !hasFile || !hasCustomPatterns;
   document.getElementById("clearBasicBtn").disabled = lastResult === "";
   document.getElementById("downloadBtn").disabled = lastResult === "";
   document.getElementById("copyBtn").disabled = lastResult === "";
@@ -223,14 +232,15 @@ function updateButtonStates() {
 
 function switchTab(tab) {
   document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
-  document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".tab-button").forEach(el => el.classList.remove("active"));
   
   document.getElementById(tab).classList.add("active");
   event.target.classList.add("active");
 }
 
 function filterRules(tab) {
-  const search = document.getElementById(`search${tab.charAt(0).toUpperCase() + tab.slice(1)}`).value.toLowerCase();
+  const searchId = tab.charAt(0).toUpperCase() + tab.slice(1);
+  const search = document.getElementById(`search${searchId}`).value.toLowerCase();
   const container = document.getElementById(`${tab}RulesContainer`);
   
   container.querySelectorAll(".rule-group").forEach(group => {
@@ -322,8 +332,9 @@ async function generateVariants(mode) {
   
   document.getElementById("generateBasicBtn").disabled = true;
   document.getElementById("generateAdvBtn").disabled = true;
+  document.getElementById("generateCustomBtn").disabled = true;
   document.getElementById("stopBtn").style.display = "inline-flex";
-  document.getElementById("progressSection").classList.add("active");
+  document.getElementById("progressSection").style.display = "block";
   
   try {
     let chosen = [];
@@ -335,6 +346,11 @@ async function generateVariants(mode) {
         prefixes: document.getElementById("customPrefixes").value.split("\n").filter(x => x.trim()),
         separators: document.getElementById("customSeparators").value.split("\n").filter(x => x.trim())
       };
+      
+      if (!customPatterns.suffixes.length && !customPatterns.prefixes.length && !customPatterns.separators.length) {
+        showToast("❌ Vui lòng nhập ít nhất một pattern!", "error");
+        throw new Error("No custom patterns provided");
+      }
     } else {
       const selector = mode === "basic" ? "#basicRulesContainer" : "#advancedRulesContainer";
       chosen = Array.from(document.querySelectorAll(`${selector} input:checked`))
@@ -342,12 +358,7 @@ async function generateVariants(mode) {
       
       if (chosen.length === 0) {
         showToast("❌ Vui lòng chọn ít nhất một quy tắc!", "error");
-        isProcessing = false;
-        document.getElementById("generateBasicBtn").disabled = false;
-        document.getElementById("generateAdvBtn").disabled = false;
-        document.getElementById("stopBtn").style.display = "none";
-        document.getElementById("progressSection").classList.remove("active");
-        return;
+        throw new Error("No rules selected");
       }
     }
     
@@ -357,7 +368,7 @@ async function generateVariants(mode) {
       rules: chosen,
       customPatterns: customPatterns,
       depth: parseInt(document.getElementById("mutationDepth").value),
-      chunkSize: parseInt(document.getElementById("chunkSize").value),
+      chunkSize: 500,
       maxResults: parseInt(document.getElementById("maxResults").value)
     };
     
@@ -397,8 +408,9 @@ async function generateVariants(mode) {
     shouldStop = false;
     document.getElementById("generateBasicBtn").disabled = false;
     document.getElementById("generateAdvBtn").disabled = false;
+    document.getElementById("generateCustomBtn").disabled = false;
     document.getElementById("stopBtn").style.display = "none";
-    document.getElementById("progressSection").classList.remove("active");
+    document.getElementById("progressSection").style.display = "none";
     updateButtonStates();
   }
 }
@@ -480,6 +492,7 @@ function copyToClipboard() {
   });
 }
 
+// ✅ FIXED: clearAll() now clears Custom Patterns
 function clearAll() {
   lastResult = "";
   allResults.clear();
@@ -488,9 +501,15 @@ function clearAll() {
   document.querySelectorAll(".rules input:checked").forEach((c) => {
     c.checked = false;
   });
-  document.getElementById("output").textContent = "Chưa có dữ liệu. Vui lòng tải file lên.";
+  // Clear Custom Patterns
+  document.getElementById("customSuffixes").value = "";
+  document.getElementById("customPrefixes").value = "";
+  document.getElementById("customSeparators").value = "";
+  
+  document.getElementById("output").textContent = "Không có dữ liệu. Vui lòng tải file lên.";
   document.getElementById("count").textContent = "0";
   document.getElementById("totalCount").textContent = "0";
+  document.getElementById("ratioCount").textContent = "0x";
   document.getElementById("progressBar").style.width = "0%";
   document.getElementById("statsFile").textContent = "0";
   document.getElementById("statsVariants").textContent = "0";
@@ -503,8 +522,21 @@ function clearAll() {
 // INITIALIZATION
 // ============================================
 
+// Setup tab switching
 document.addEventListener("DOMContentLoaded", () => {
   initializeUI();
   setupFileUpload();
   updateButtonStates();
+  
+  // Add tab click handlers
+  document.querySelectorAll(".tab-button").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".tab-button").forEach(el => el.classList.remove("active"));
+      
+      document.getElementById(tab).classList.add("active");
+      btn.classList.add("active");
+    });
+  });
 });
